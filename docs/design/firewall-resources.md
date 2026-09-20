@@ -46,6 +46,59 @@ Create: POST activate → poll action to `success` (timeout 2 min, `delayed` kee
 - Set semantics: rules in different order → no diff (test).
 - Acceptance (`TF_ACC=1`, real token, **only in a job the owner triggers**): create firewall `tf-acc-<rand>` with 2 rules, replace rules, delete. Attachment acceptance only against a VM id given via env — never automatically.
 
+## Implementation notes
+
+- **No `terraform` CLI in the dev container.** `resource.UnitTest`/`resource.Test`
+  (SDK v2's harness) shell out to a real `terraform` binary and, absent one,
+  `hc-install` tries to download it from releases.hashicorp.com; in
+  `Makefile.dev`'s bare `golang:1.25-bookworm` container this fails
+  (`unable to verify checksums signature: openpgp: key expired`), so there is
+  no network fallback either. Rather than depend on that path, the resource
+  tests (`firewall_resource_test.go`, `firewall_attachment_resource_test.go`)
+  drive the CRUD functions (`resourceHostingerFirewallCreate/Read/Update/
+  Delete/Import`, and the attachment equivalents) directly against the
+  httptest mock, using `schema.TestResourceDataRaw` the same way the SDK's
+  own internal tests do. This exercises every code path (create, rule
+  replace-on-update, read-clears-state-on-404, delete, import, attachment
+  activate/read/deactivate/import, drift removal) but does not exercise
+  Terraform's own plan/diff engine. If/when a `terraform` binary or
+  `TF_ACC_TERRAFORM_PATH` becomes available in CI, swapping in
+  `resource.UnitTest` with `ProviderFactories` pointing at `base_url` is a
+  drop-in replacement — the resource code itself doesn't change.
+- **"Reordered rules => no diff"** is a property of `schema.TypeSet` itself
+  (each element is hashed by content via `schema.HashResource`, so a `*schema.
+  Set` doesn't care what order its elements were added in). Since we can't
+  run a real `terraform plan`, `TestFirewallResource_RuleSetOrderIndependent`
+  checks this directly: two configs with the same rules in different order
+  produce `.Equal()` `*schema.Set` values.
+- **ICMP `port`** is left as a plain required string with only a non-empty
+  validator (not restricted to `any`/`1:65535`) — the spec flagged this as
+  "verify live" and no token/API access exists here to check it. See "Open
+  questions" below.
+- **429 retry**: `firewallRequest` retries a request exactly once on HTTP 429,
+  waiting `Retry-After` seconds (falling back to `firewallRetryDefaultWait` if
+  the header is absent/unparsable). A second 429 is returned to the caller as
+  an error.
+- **`hostinger_firewall` delete** does not attempt to detach the firewall
+  from any VM first; per the spec this is the attachment resource's job
+  (`depends_on` ordering in the config). The mock does not simulate the API
+  refusing to delete an attached firewall (behaviour unverified without a
+  token), so this path isn't covered by a test.
+
+### Open questions for the real-API acceptance run
+
+- Does `PUT .../rules` accept `port: "any"` for `protocol: "ICMP"`/`"ICMPv6"`,
+  or does it require an explicit range like `"1:65535"`? The OpenAPI schema
+  marks `port` required with no enum/pattern restriction.
+- Does `DELETE /firewall/{id}` on a firewall still activated on a VM return
+  422/409, or does it silently detach? This affects whether documentation
+  should warn about `depends_on` ordering or whether the provider should
+  actively detach first.
+- Whether `GET /virtual-machines/{id}` reflects `firewall_group_id` update
+  synchronously with action completion, or lags briefly (relevant to the
+  attachment resource's `Read`, which assumes it's synchronous once the
+  action is `success`).
+
 ## Definition of done
 1. `go build`, `go vet`, `gofmt -l` clean, `go test ./...` green in Forgejo CI (`.forgejo/workflows/ci.yml`, `container: golang`).
 2. `docs/resources/firewall.md` + `firewall_attachment.md` generated (`tfplugindocs`) or hand-written in the same format; `examples/resources/…/resource.tf`.
