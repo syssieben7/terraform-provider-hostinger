@@ -349,13 +349,13 @@ func resourceHostingerVPSUpdate(ctx context.Context, d *schema.ResourceData, m i
 
 func resourceHostingerVPSImport(ctx context.Context, d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
 	client := m.(*HostingerClient)
-	
+
 	// The import ID should be the VPS ID
 	vmID, err := strconv.Atoi(d.Id())
 	if err != nil {
 		return nil, fmt.Errorf("invalid VPS ID format: %s", d.Id())
 	}
-	
+
 	// Use the enhanced function to get full details including plan
 	vm, err := client.GetVirtualMachineWithFullDetails(vmID)
 	if err != nil {
@@ -364,7 +364,7 @@ func resourceHostingerVPSImport(ctx context.Context, d *schema.ResourceData, m i
 		}
 		return nil, fmt.Errorf("failed to fetch VPS details: %w", err)
 	}
-	
+
 	// Set all fields
 	d.SetId(strconv.Itoa(vmID))
 	if err := d.Set("vps_id", vm.ID); err != nil {
@@ -376,14 +376,14 @@ func resourceHostingerVPSImport(ctx context.Context, d *schema.ResourceData, m i
 	if err := d.Set("status", vm.State); err != nil {
 		return nil, fmt.Errorf("failed to set status: %w", err)
 	}
-	
+
 	// Set the plan if we successfully retrieved it
 	if vm.Plan != "" {
 		if err := d.Set("plan", vm.Plan); err != nil {
 			return nil, fmt.Errorf("failed to set plan: %w", err)
 		}
 	}
-	
+
 	// Set data center and template IDs if available
 	if vm.DataCenterID > 0 {
 		if err := d.Set("data_center_id", vm.DataCenterID); err != nil {
@@ -395,7 +395,7 @@ func resourceHostingerVPSImport(ctx context.Context, d *schema.ResourceData, m i
 			return nil, fmt.Errorf("failed to set template_id: %w", err)
 		}
 	}
-	
+
 	// Set IP addresses
 	if len(vm.IPv4) > 0 {
 		if err := d.Set("ipv4_address", vm.IPv4[0].Address); err != nil {
@@ -407,6 +407,6 @@ func resourceHostingerVPSImport(ctx context.Context, d *schema.ResourceData, m i
 			return nil, fmt.Errorf("failed to set ipv6_address: %w", err)
 		}
 	}
-	
+
 	return []*schema.ResourceData{d}, nil
 }

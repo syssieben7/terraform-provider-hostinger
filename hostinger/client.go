@@ -92,13 +92,13 @@ func (c *HostingerClient) GetSubscriptionDetails(subscriptionID string) (*Subscr
 		return nil, err
 	}
 	c.addStandardHeaders(req)
-	
+
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	
+
 	if resp.StatusCode == http.StatusNotFound {
 		return nil, ErrNotFound
 	}
@@ -106,7 +106,7 @@ func (c *HostingerClient) GetSubscriptionDetails(subscriptionID string) (*Subscr
 		body, _ := io.ReadAll(resp.Body)
 		return nil, fmt.Errorf("failed to get subscription details (HTTP %d): %s", resp.StatusCode, string(body))
 	}
-	
+
 	var details SubscriptionDetails
 	if err := json.NewDecoder(resp.Body).Decode(&details); err != nil {
 		return nil, fmt.Errorf("invalid subscription details response: %w", err)
@@ -116,11 +116,11 @@ func (c *HostingerClient) GetSubscriptionDetails(subscriptionID string) (*Subscr
 
 // SubscriptionDetails contains detailed subscription information including the plan
 type SubscriptionDetails struct {
-	ID       string `json:"id"`
-	Status   string `json:"status"`
-	Plan     string `json:"plan"`
-	ItemID   string `json:"item_id"`
-	Product  struct {
+	ID      string `json:"id"`
+	Status  string `json:"status"`
+	Plan    string `json:"plan"`
+	ItemID  string `json:"item_id"`
+	Product struct {
 		Type       string `json:"type"`
 		ResourceID int    `json:"resource_id"`
 	} `json:"product"`
@@ -375,7 +375,7 @@ func (c *HostingerClient) GetVirtualMachineWithFullDetails(vmID int) (*VirtualMa
 	if err != nil {
 		return nil, err
 	}
-	
+
 	// Extract IDs from template/datacenter if they're objects
 	if vm.Template != nil {
 		if tmplObj, ok := vm.Template.(map[string]interface{}); ok {
@@ -386,7 +386,7 @@ func (c *HostingerClient) GetVirtualMachineWithFullDetails(vmID int) (*VirtualMa
 			}
 		}
 	}
-	
+
 	if vm.DataCenter != nil {
 		if dcObj, ok := vm.DataCenter.(map[string]interface{}); ok {
 			if id, exists := dcObj["id"]; exists {
@@ -396,7 +396,7 @@ func (c *HostingerClient) GetVirtualMachineWithFullDetails(vmID int) (*VirtualMa
 			}
 		}
 	}
-	
+
 	// Try to get subscription details to enrich with plan information
 	if vm.SubscriptionID != "" {
 		subDetails, err := c.GetSubscriptionDetails(vm.SubscriptionID)
@@ -410,7 +410,7 @@ func (c *HostingerClient) GetVirtualMachineWithFullDetails(vmID int) (*VirtualMa
 		}
 		// We don't fail if subscription details can't be fetched, we just use what we have
 	}
-	
+
 	return vm, nil
 }
 
