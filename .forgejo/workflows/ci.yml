@@ -1,0 +1,35 @@
+name: ci
+# Forgejo Actions on the florian runner fleet. Job image overrides the label
+# default (docker backend honours `container:`), Go modules via proxy.golang.org
+# (whitelisted on the VPS egress), no secrets: unit tests use an httptest mock.
+on:
+  push:
+    branches: [main, feat/**]
+  pull_request:
+jobs:
+  test:
+    runs-on: docker
+    container:
+      image: golang:1.25-bookworm
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          AUTH_URL=$(echo "${GITHUB_SERVER_URL}" | sed "s#://#://x-access-token:${GITHUB_TOKEN}@#")
+          git clone --quiet "${AUTH_URL}/${GITHUB_REPOSITORY}.git" .
+          git checkout --quiet "${GITHUB_SHA}"
+      - name: fmt / vet / build
+        run: |
+          test -z "$(gofmt -l .)" || { gofmt -l .; echo "gofmt: files need formatting"; exit 1; }
+          go vet ./...
+          go build ./...
+      - name: unit tests (mock API)
+        run: go test -count=1 -race ./... 2>&1 | tail -40
+      - name: acceptance (only when the owner sets HOSTINGER_API_TOKEN as repo secret AND the workflow is dispatched)
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        env:
+          TF_ACC: "1"
+          HOSTINGER_API_TOKEN: ${{ secrets.HOSTINGER_API_TOKEN }}
+        run: go test -count=1 -run 'TestAcc' ./hostinger/ -v 2>&1 | tail -60

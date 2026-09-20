@@ -1,0 +1,9 @@
+# Dev loop without Go on the Mac (owner rule): everything runs in a container.
+IMG ?= golang:1.25-bookworm
+D = docker run --rm -v "$(CURDIR):/src" -w /src -e GOFLAGS=-mod=mod $(IMG)
+.PHONY: fmt vet build test acc
+fmt:   ; $(D) gofmt -l -w .
+vet:   ; $(D) go vet ./...
+build: ; $(D) go build ./...
+test:  ; $(D) go test -count=1 -race ./...
+acc:   ; docker run --rm -v "$(CURDIR):/src" -w /src -e TF_ACC=1 -e HOSTINGER_API_TOKEN $(IMG) go test -count=1 -run TestAcc ./hostinger/ -v
