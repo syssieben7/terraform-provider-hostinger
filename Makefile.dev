@@ -1,5 +1,7 @@
 # Dev loop without Go on the Mac (owner rule): everything runs in a container.
 IMG ?= golang:1.25-bookworm
+# Mac: OrbStack socket (default context points at a socket that does not exist)
+export DOCKER_HOST ?= unix://$(HOME)/.orbstack/run/docker.sock
 D = docker run --rm -v "$(CURDIR):/src" -w /src -e GOFLAGS=-mod=mod $(IMG)
 .PHONY: fmt vet build test acc
 fmt:   ; $(D) gofmt -l -w .
