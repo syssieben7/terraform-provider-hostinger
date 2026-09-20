@@ -98,6 +98,15 @@ Create: POST activate → poll action to `success` (timeout 2 min, `delayed` kee
   synchronously with action completion, or lags briefly (relevant to the
   attachment resource's `Read`, which assumes it's synchronous once the
   action is `success`).
+- What `is_synced` actually reflects on the real API right after
+  `PUT .../rules` with `sync=true` on a firewall with **zero** attached VMs
+  (nothing to sync to). The mock server simply echoes the request's `sync`
+  flag back as `is_synced`, which is not necessarily how the real API
+  computes it (likely "rules currently pushed to every attached VM"), so
+  `TestFirewallResource_CreateReadDelete`'s `is_synced == true` assertion is
+  only testing the mock's echo behaviour, not the real semantics. `is_synced`
+  is Computed, so this can't cause a plan diff either way, but worth
+  confirming before relying on it for anything user-facing.
 
 ## Definition of done
 1. `go build`, `go vet`, `gofmt -l` clean, `go test ./...` green in Forgejo CI (`.forgejo/workflows/ci.yml`, `container: golang`).

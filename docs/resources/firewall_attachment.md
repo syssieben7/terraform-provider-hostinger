@@ -8,8 +8,8 @@ The `hostinger_firewall_attachment` resource activates a `hostinger_firewall` gr
 
 ```hcl
 resource "hostinger_firewall_attachment" "web" {
-  firewall_id         = hostinger_firewall.web.id
-  virtual_machine_id  = hostinger_vps.example.id
+  firewall_id        = hostinger_firewall.web.id
+  virtual_machine_id = hostinger_vps.example.id
 }
 ```
 
