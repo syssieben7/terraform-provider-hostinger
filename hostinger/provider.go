@@ -18,12 +18,20 @@ func Provider() *schema.Provider {
 				Description: "API token for authenticating with Hostinger API.",
 				DefaultFunc: schema.EnvDefaultFunc("HOSTINGER_API_TOKEN", nil),
 			},
+			"base_url": {
+				Type:        schema.TypeString,
+				Optional:    true,
+				Description: "Override the Hostinger API base URL. Defaults to https://developers.hostinger.com.",
+				DefaultFunc: schema.EnvDefaultFunc("HOSTINGER_API_URL", "https://developers.hostinger.com"),
+			},
 		},
 		ResourcesMap: map[string]*schema.Resource{
 			"hostinger_vps":                     resourceHostingerVPS(),
 			"hostinger_vps_post_install_script": resourceHostingerVPSPostInstallScript(),
 			"hostinger_vps_ssh_key":             resourceHostingerVPSSSHKey(),
 			"hostinger_dns_record":              resourceHostingerDNSRecord(),
+			"hostinger_firewall":                resourceHostingerFirewall(),
+			"hostinger_firewall_attachment":     resourceHostingerFirewallAttachment(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"hostinger_vps_templates":    dataSourceHostingerVPSTemplates(),
@@ -50,5 +58,8 @@ func providerConfigure(_ context.Context, d *schema.ResourceData) (interface{}, 
 
 	// Initialize the Hostinger API client
 	client := NewHostingerClient(token, "0.1.22")
+	if baseURL := d.Get("base_url").(string); baseURL != "" {
+		client.BaseURL = baseURL
+	}
 	return client, diags
 }
